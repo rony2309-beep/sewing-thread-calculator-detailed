@@ -297,5 +297,104 @@ function sampleState(){const black=blankColour('Black','BLK','#111827',600),navy
 $('#menuBtn').onclick=()=>$('#sidebar').classList.toggle('open');$('#closeDrawerBtn').onclick=()=>$('#drawerBackdrop').classList.remove('open');$('#drawerBackdrop').onclick=e=>{if(e.target===$('#drawerBackdrop'))$('#drawerBackdrop').classList.remove('open')};$('#saveBtn').onclick=()=>saveProject(true);$('#loadBtn').onclick=loadSaved;$('#exportJsonBtn').onclick=exportProject;$('#importJsonBtn').onclick=()=>$('#importFile').click();$('#importFile').onchange=e=>e.target.files[0]&&importProject(e.target.files[0]);$('#printBtn').onclick=()=>{calculateAndRender(false);window.print()};$('#addColourBtn').onclick=()=>{state.colours.push(blankColour());invalidateApproval();renderAll()};$('#addOperationBtn').onclick=()=>{const o=blankOperation();o.sequence=state.operations.length+1;state.operations.push(o);invalidateApproval();renderAll()};$('#loadSampleBtn').onclick=loadSample;$('#clearSampleBtn').onclick=resetBlank;document.addEventListener('click',e=>{const b=e.target.closest('[data-export]');if(b)exportRows(b.dataset.export)});
 renderNav();let saved=null;try{saved=localStorage.getItem('threadConsumptionFactoryV2')}catch(e){saved=null}if(saved){try{state=JSON.parse(saved)}catch(e){state=sampleState()}}else state=sampleState();normalizeState();renderAll(false);
 </script>
-</body>
+<!-- ১. Firebase Core SDK এবং Realtime Database SDK যুক্ত করা -->
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+
+<script>
+  // ২. আপনার ফায়ারবেস কনফিগারেশন (যা আপনি মাত্র পেয়েছেন)
+  const firebaseConfig = {
+    apiKey: "AIzaSyD4pUBDWw7mcJvtEsibX-iyjNs4i97JBfc",
+    authDomain: "thread-calculator-detailed.firebaseapp.com",
+    projectId: "thread-calculator-detailed",
+    storageBucket: "thread-calculator-detailed.firebasestorage.app",
+    messagingSenderId: "351588634812",
+    appId: "1:351588634812:web:3b1eb42d6d910fa7e400b9",
+    measurementId: "G-KLW1THBJ30"
+  };
+
+  // Firebase এবং Database ইনিশিয়ালাইজ করা
+  firebase.initializeApp(firebaseConfig);
+  const database = firebase.database();
+
+  // ৩. ডাটাবেসে ডেটা সেভ করার ফাংশন
+  function saveThreadData() {
+    // নোট: আপনার ক্যালকুলেটরের ইনপুট ফিল্ডের ID অনুযায়ী এগুলো পরিবর্তন হতে পারে
+    const buyer = document.getElementById('buyerName') ? document.getElementById('buyerName').value : "Unknown Buyer";
+    const orderQty = document.getElementById('orderQty') ? document.getElementById('orderQty').value : 0;
+    const totalConsumption = document.getElementById('totalCons') ? document.getElementById('totalCons').value : 0;
+    
+    if(totalConsumption == 0) {
+      alert("অনুগ্রহ করে আগে ক্যালকুলেশন সম্পন্ন করুন।");
+      return;
+    }
+
+    // ফায়ারবেসের 'calculations' টেবিলে ডাটা পাঠানো
+    const calculationRef = database.ref('calculations/');
+    const newCalcRef = calculationRef.push();
+    
+    newCalcRef.set({
+      buyer_name: buyer,
+      order_quantity: orderQty,
+      consumption_result: totalConsumption,
+      created_at: new Date().toLocaleString()
+    })
+    .then(() => {
+      alert("🎉 ডেটা সফলভাবে ফায়ারবেস ক্লাউডে সেভ হয়েছে!");
+    })
+    .catch((error) => {
+      console.error("সেভ করতে সমস্যা হয়েছে: ", error);
+      alert("ডেটা সেভ করা যায়নি। ফায়ারবেসের Rules চেক করুন।");
+    });
+  }
+
+  // ৪. ডাটাবেস থেকে পুরনো ডেটা স্ক্রিনে দেখানোর ফাংশন (Realtime)
+  function loadPastCalculations() {
+    const calculationRef = database.ref('calculations/');
+    calculationRef.on('value', (snapshot) => {
+      const data = snapshot.val();
+      const historyContainer = document.getElementById('historyList');
+      if (!historyContainer) return;
+      
+      historyContainer.innerHTML = "";
+      
+      if (data) {
+        Object.keys(data).forEach((key) => {
+          const item = data[key];
+          const historyItem = document.createElement('div');
+          historyItem.style.border = "1px solid #ddd";
+          historyItem.style.padding = "10px";
+          historyItem.style.margin = "5px 0";
+          historyItem.style.borderRadius = "5px";
+          historyItem.style.backgroundColor = "#f9f9f9";
+          
+          historyItem.innerHTML = `
+            <strong>বায়ার:</strong> ${item.buyer_name} | 
+            <strong>কোয়ান্টিটি:</strong> ${item.order_quantity} Pcs | 
+            <strong>কনজাম্পশন:</strong> ${item.consumption_result} <br>
+            <button onclick="reuseData('${item.buyer_name}', ${item.order_quantity})" style="margin-top: 5px; padding: 2px 5px; cursor: pointer;">Reuse Data</button>
+          `;
+          historyContainer.appendChild(historyItem);
+        });
+      } else {
+        historyContainer.innerHTML = "<p>কোনো সংরক্ষিত ডেটা নেই।</p>";
+      }
+    });
+  }
+
+  // ৫. পুরনো ডেটা আবার ক্যালকুলেটরের বক্সে ফিরিয়ে নেওয়ার ফাংশন
+  function reuseData(buyer, qty) {
+    if(document.getElementById('buyerName')) document.getElementById('buyerName').value = buyer;
+    if(document.getElementById('orderQty')) document.getElementById('orderQty').value = qty;
+    alert("ডেটা ক্যালকুলেটরে লোড করা হয়েছে!");
+  }
+
+  // পেজ চালু হওয়ার সাথে সাথে হিস্ট্রি লোড হবে
+  window.onload = function() {
+    loadPastCalculations();
+  };
+</script>
+
+  
+</body> 
 </html>
