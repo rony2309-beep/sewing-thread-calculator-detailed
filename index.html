@@ -281,7 +281,7 @@ function calculateAndRender(autosave=true){const calc=buildCalc(),errs=validate(
 function renderAll(autosave=true){normalizeState();renderStyle();renderColourways();renderOperations();renderAssignments();renderMaster();calculateAndRender(autosave)}
 function invalidateApproval(){state.meta.approvedAt=''}
 function autoSave(){try{localStorage.setItem('threadConsumptionFactoryV2',JSON.stringify(state))}catch(e){console.warn(e)}}
-function saveProject(show=true){autoSave();if(show)alert('Project saved in this browser.')}
+function saveProject(show=true){autoSave();if(show)alert('Project saved in this browser.'); if(typeof saveThreadData === "function"){saveThreadData();}}
 function loadSaved(){const s=localStorage.getItem('threadConsumptionFactoryV2');if(!s)return alert('No saved project was found in this browser.');try{state=JSON.parse(s);normalizeState();renderAll(false);alert('Saved project loaded.')}catch(e){alert('Saved project is invalid: '+e.message)}}
 function download(name,content,type){const blob=new Blob([content],{type}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 function exportProject(){download(`${state.meta.styleNo||'thread-consumption'}-project.json`,JSON.stringify({app:'Thread Consumption Calculator',version:2,exportedAt:new Date().toISOString(),state},null,2),'application/json')}
